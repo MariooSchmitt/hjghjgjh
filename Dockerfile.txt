@@ -20,24 +20,38 @@ RUN apt update && apt install -y \
     pulseaudio-utils \
     wine \
     wine32 \
-    firefox-esr && \
-    apt clean && rm -rf /var/lib/apt/lists/*
+    firefox-esr \
+    chromium && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set root password
 RUN echo "root:root" | chpasswd
 
-RUN sed -i 's/^allowed_users=.*/allowed_users=anybody/' /etc/X11/Xwrapper.config || echo "allowed_users=anybody" >> /etc/X11/Xwrapper.config
+# Allow anyone to start X
+RUN sed -i 's/^allowed_users=.*/allowed_users=anybody/' /etc/X11/Xwrapper.config || \
+    echo "allowed_users=anybody" >> /etc/X11/Xwrapper.config
 
-RUN echo "startxfce4" > /root/.xsession && chmod 700 /root/.xsession
+# XFCE session
+RUN echo "startxfce4" > /root/.xsession && \
+    chmod 700 /root/.xsession
 
-# Generate machine-id for dbus
-RUN mkdir -p /var/run/dbus && dbus-uuidgen > /var/lib/dbus/machine-id
+# Generate DBus machine-id
+RUN mkdir -p /var/run/dbus && \
+    dbus-uuidgen > /var/lib/dbus/machine-id
 
+# Configure XRDP
 RUN sed -i 's/crypt_level=high/crypt_level=low/' /etc/xrdp/xrdp.ini && \
     sed -i 's/security_layer=negotiate/security_layer=rdp/' /etc/xrdp/xrdp.ini && \
-    echo "exec startxfce4" > /etc/xrdp/startwm.sh && chmod +x /etc/xrdp/startwm.sh
+    printf '#!/bin/sh\nexec startxfce4\n' > /etc/xrdp/startwm.sh && \
+    chmod +x /etc/xrdp/startwm.sh
 
+# XRDP permissions
 RUN adduser xrdp ssl-cert
+
+# Chromium wrapper for root
+RUN printf '#!/bin/bash\nexec /usr/bin/chromium --no-sandbox "$@"\n' > /usr/local/bin/chrome && \
+    chmod +x /usr/local/bin/chrome
 
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
